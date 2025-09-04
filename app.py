@@ -10,9 +10,6 @@ orange juice, 2.5
 Expresso, 2
 Tea,3
 '''
-
-beverages = pd.read_csv(io.StringIO(csv))
-
 csv2 = '''
 food_item, food price
 cookie juice, 2.5
@@ -28,6 +25,17 @@ CROSS JOIN food_items
 '''
 
 solution = duckdb.sql(answer).df()
+
+beverages = pd.read_csv(io.StringIO(csv))
+with st.sidebar:
+    option = st.selectbox(
+        "What would you like to reveiw ?",
+        ["Join", "GoupBy", "Windows Functions"],
+        index=None,
+        placeholder="Select option",
+    )
+    st.write('You selected ', option)
+
 
 
 
