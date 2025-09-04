@@ -10,53 +10,57 @@ orange juice, 2.5
 Expresso, 2
 Tea,3
 '''
+
 csv2 = '''
-food_item, food price
+food_item,food_price
 cookie juice, 2.5
 Chocolatine, 2
 muffin, 3
 '''
 
+# Charger les DataFrames
+beverage = pd.read_csv(io.StringIO(csv))
 food_items = pd.read_csv(io.StringIO(csv2))
 
+# Enregistrer les DataFrames dans DuckDB
+duckdb.register("beverage", beverage)
+duckdb.register("food_items", food_items)
+
+# Solution attendue
 answer = '''
-SELECT * FROM beverages
+SELECT * FROM beverage
 CROSS JOIN food_items
 '''
-
 solution = duckdb.sql(answer).df()
 
-beverages = pd.read_csv(io.StringIO(csv))
+# Sidebar
 with st.sidebar:
     option = st.selectbox(
-        "What would you like to reveiw ?",
-        ["Join", "GoupBy", "Windows Functions"],
+        "What would you like to review ?",
+        ["Join", "GroupBy", "Window Functions"],
         index=None,
         placeholder="Select option",
     )
     st.write('You selected ', option)
 
-
-
-
-
-st.write("Enter you code")
-query = st.text_area(label="Enter your code",key="user_input")
+# Zone pour requête utilisateur
+st.write("Enter your code")
+query = st.text_area(label="Enter your code", key="user_input")
 
 if query:
     result = duckdb.sql(query).df()
     st.dataframe(result)
 
+# Onglets
 tab2, tab3 = st.tabs(["Tables", "Solution"])
 
 with tab2:
-    st.write("Table : Beverages")
-    st.dataframe(beverages)
+    st.write("Table : Beverage")
+    st.dataframe(beverage)
     st.write("Table : Food Items")
     st.dataframe(food_items)
-    st.write("expected")
+    st.write("Expected result")
     st.dataframe(solution)
 
 with tab3:
     st.write(answer)
-
