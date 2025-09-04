@@ -1,25 +1,54 @@
 import streamlit as st
 import pandas as pd
 import duckdb
+import io
 
-st.write("SQL SRS")
 
-option = st.selectbox(
-    "What would you like to reveiw ?",
-    ["Join", "GoupBy", "Windows Functions"],
-    index=None,
-    placeholder="Select option",
-)
+csv = '''
+beverage,price
+orange juice, 2.5
+Expresso, 2
+Tea,3
+'''
 
-st.write('You selected ', option)
+beverages = pd.read_csv(io.StringIO(csv))
 
-data = {"a" : [1, 2, 3], "b" : [4, 5, 6]}
-df = pd.DataFrame(data)
+csv2 = '''
+food_item, food price
+cookie juice, 2.5
+Chocolatine, 2
+muffin, 3
+'''
 
-tab1, tab2, tab3 = st.tabs(["Cat", "Dog", "Owl"])
+food_items = pd.read_csv(io.StringIO(csv2))
 
-with tab1:
-    input_text = st.text_area (label="Input text")
-    st.write(duckdb.sql(input_text))
-    st.dataframe(df)
+answer = '''
+SELECT * FROM beverages
+CROSS JOIN food_items
+'''
+
+solution = duckdb.sql(answer).df()
+
+
+
+
+st.write("Enter you code")
+query = st.text_area(label="Enter your code",key="user_input")
+
+if query:
+    result = duckdb.sql(query).df()
+    st.dataframe(result)
+
+tab2, tab3 = st.tabs(["Tables", "Solution"])
+
+with tab2:
+    st.write("Table : Beverages")
+    st.dataframe(beverages)
+    st.write("Table : Food Items")
+    st.dataframe(food_items)
+    st.write("expected")
+    st.dataframe(solution)
+
+with tab3:
+    st.write(answer)
 
