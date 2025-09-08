@@ -1,34 +1,46 @@
 # pylint: disable=missing-module-docstring
-
-import ast
+import os
+import logging
 import duckdb
 import streamlit as st
+
+if "data" not in os.listdir():
+    print("Creating data...")
+    logging.error(os.listdir())
+    logging.error("creating data")
+    os.mkdir("data")
+
+if "exercices_sql_tables.duckdb" not in os.listdir("data"):
+    exec(open("init_db.py").read())
 
 con = duckdb.connect(database="data/exercises_sql_tables.duckdb", read_only=False)
 
 # Sidebar
+# Récupérer les thèmes distincts depuis memory_state
+themes_df = con.execute("SELECT DISTINCT theme FROM memory_state").df()
+themes = themes_df["theme"].tolist()
+
 with st.sidebar:
     theme = st.selectbox(
         "What would you like to review ?",
-        ["cross_joins", "GroupBy", "window_functions"],
+        themes,                # 👈 prend les thèmes depuis la DB
         index=None,
         placeholder="Select theme",
     )
     st.write("You selected ", theme)
 
-    exercice = con.execute(f"SELECT * FROM memory_state WHERE theme ='{theme}'").df()
-    st.write(exercice)
 
-    # try:
-    #     exercice_name = exercice.loc[0, "exercise_name"]
-    #     with open(f"answers/{exercice_name}.sql", "r") as f:
-    #         answer = f.read()
-    #     solution_df = con.execute(answer).df()
-    # except (KeyError, IndexError):
-    #     st.warning("Aucun exercice trouvé (choisis un thème dans la sidebar).")
-    #     exercice_name = None
-    #     answer = None
-    #     solution_df = None
+# with st.sidebar:
+#     theme = st.selectbox(
+#         "What would you like to review ?",
+#         ["cross_joins", "GroupBy", "window_functions"],
+#         index=None,
+#         placeholder="Select theme",
+#     )
+#     st.write("You selected ", theme)
+#
+    exercice = con.execute(f"SELECT * FROM memory_state WHERE theme ='{theme}'").df().sort_values("last_reviewed").reset_index()
+    st.write(exercice)
 
     # ... après avoir défini `exercice` ...
     try:
@@ -76,7 +88,7 @@ tab2, tab3 = st.tabs(["Tables", "solution_df"])
 
 with tab2:
     try:
-        exercice_table = ast.literal_eval(exercice.iloc[0]["tables"])
+        exercice_table = exercice.iloc[0]["tables"]
     except (IndexError, KeyError, SyntaxError, ValueError):
         st.info("Aucune table à afficher pour le moment.")
     else:
