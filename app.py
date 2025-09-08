@@ -1,5 +1,6 @@
-#pylint: disable=missing-module-docstring
+# pylint: disable=missing-module-docstring
 
+import ast
 import duckdb
 import streamlit as st
 
@@ -10,13 +11,13 @@ ANSWER_STR = """
 SELECT * FROM beverage
 CROSS JOIN food_items
 """
-#solution_df = duckdb.sql(ANSWER_STR).df()
+# solution_df = duckdb.sql(ANSWER_STR).df()
 
 # Sidebar
 with st.sidebar:
     theme = st.selectbox(
         "What would you like to review ?",
-        ["cross_joins", "GroupBy", "Window Functions"],
+        ["cross_joins", "GroupBy", "window_functions"],
         index=None,
         placeholder="Select theme",
     )
@@ -29,9 +30,9 @@ with st.sidebar:
 st.write("Enter your code")
 query = st.text_area(label="Enter your code", key="user_input")
 #
-# if query:
-#     result = duckdb.sql(query).df()
-#     st.dataframe(result)
+if query:
+    result = con.execute(query).df()
+    st.dataframe(result)
 #
 #     if len(result.columns) != len(solution_df.columns):  # replace with result
 #         st.write("Your code does not have the right columns")
@@ -49,15 +50,21 @@ query = st.text_area(label="Enter your code", key="user_input")
 #             )
 #
 # # Onglets
-# tab2, tab3 = st.tabs(["Tables", "solution_df"])
+tab2, tab3 = st.tabs(["Tables", "solution_df"])
 
-# with tab2:
-#     st.write("Table : Beverage")
-#     st.dataframe(beverage)
+with tab2:
+    exercice_table = ast.literal_eval(exercice.loc[0, "tables"])
+    for table in exercice_table:
+        st.write(f"Table : {table}")
+        df_table = con.execute(f"SELECT * FROM {table}").df()
+        st.dataframe(df_table)
 #     st.write("Table : Food Items")
 #     st.dataframe(food_items)
 #     st.write("Expected result")
 #     st.dataframe(solution_df)
 #
-# with tab3:
-#     st.write(ANSWER_STR)
+with tab3:
+    exercice_name = exercice.loc[0, "exercise_name"]
+    with open(f"answers/{exercice_name}.sql", "r") as f:
+        answer = f.read()
+    st.write(answer)
