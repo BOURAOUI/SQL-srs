@@ -1,83 +1,104 @@
-#pylint: disable=missing-module-docstring
+# pylint: disable=missing-module-docstring
 
-import io
-
+import os
+import logging
 import duckdb
-import pandas as pd
 import streamlit as st
+from datetime import date, timedelta
 
-CSV = """
-bev,price
-orange juice, 2.5
-Expresso, 2
-Tea,3
-"""
 
-CSV2 = """
-food_item,food_price
-cookie juice, 2.5
-Chocolatine, 2
-muffin, 3
-"""
+if "data" not in os.listdir():
+    print("creating folder data")
+    logging.error(os.listdir())
+    logging.error("creating folder data")
+    os.mkdir("data")
 
-# Charger les DataFrames
-beverage = pd.read_csv(io.StringIO(CSV))
-food_items = pd.read_csv(io.StringIO(CSV2))
+if "exercises_sql_tables.duckdb" not in os.listdir("data"):
+    exec(open("init_db.py").read())
+    # subprocess.run(["python", "init_db.py"])
 
-# Enregistrer les DataFrames dans DuckDB
-duckdb.register("beverage", beverage)
-duckdb.register("food_items", food_items)
+con = duckdb.connect(database="data/exercises_sql_tables.duckdb", read_only=False)
 
-# solution_df attendue
-ANSWER_STR = """
-SELECT * FROM beverage
-CROSS JOIN food_items
-"""
-solution_df = duckdb.sql(ANSWER_STR).df()
 
-# Sidebar
+def check_users_solution(user_query: str) -> None:
+    """
+    Checks that user SQL query is correct by:
+    1: checking the columns
+    2: checking the values
+    :param user_query: a string containing the query inserted by the user
+    """
+    result = con.execute(user_query).df()
+    st.dataframe(result)
+    try:
+        result = result[solution_df.columns]
+        st.dataframe(result.compare(solution_df))
+        if result.compare(solution_df).shape == (0, 0):
+            st.write("Correct !")
+            st.balloons()
+    except KeyError as e:
+        st.write("Some columns are missing")
+    n_lines_difference = result.shape[0] - solution_df.shape[0]
+    if n_lines_difference != 0:
+        st.write(
+            f"result has a {n_lines_difference} lines difference with the solution_df"
+        )
+
+
 with st.sidebar:
-    option = st.selectbox(
-        "What would you like to review ?",
-        ["Join", "GroupBy", "Window Functions"],
+    available_themes_df = con.execute("SELECT DISTINCT theme FROM memory_state").df()
+    theme = st.selectbox(
+        "What would you like to review?",
+        available_themes_df["theme"].unique(),
         index=None,
-        placeholder="Select option",
+        placeholder="Select a theme...",
     )
-    st.write("You selected ", option)
+    if theme:
+        st.write(f"You selected {theme}")
+        select_exercise_query = f"SELECT * FROM memory_state WHERE theme = '{theme}'"
+    else:
+        select_exercise_query = f"SELECT * FROM memory_state"
 
-# Zone pour requête utilisateur
-st.write("Enter your code")
-query = st.text_area(label="Enter your code", key="user_input")
+    exercise = (
+        con.execute(select_exercise_query)
+        .df()
+        .sort_values("last_reviewed")
+        .reset_index(drop=True)
+    )
+    st.write(exercise)
+    exercise_name = exercise.loc[0, "exercise_name"]
+    with open(f"answers/{exercise_name}.sql", "r") as f:
+        answer = f.read()
+
+    solution_df = con.execute(answer).df()
+
+st.header("enter your code:")
+form = st.form("my_form")
+query = form.text_area(label="votre code SQL ici", key="user_input")
+form.form_submit_button("Submit")
 
 if query:
-    result = duckdb.sql(query).df()
-    st.dataframe(result)
+    check_users_solution(query)
 
-    if len(result.columns) != len(solution_df.columns):  # replace with result
-        st.write("Your code does not have the right columns")
+for n_days in [2, 7, 21]:
+    if st.button(f"Revoir dans {n_days} jours"):
+        next_review = date.today() + timedelta(days=n_days)
+        con.execute(
+            f"UPDATE memory_state SET last_reviewed = '{next_review}' WHERE exercise_name = '{exercise_name}'"
+        )
+        st.rerun()
 
-        try:
-            result = result[solution_df.columns]
-            st.dataframe(result.compare(solution_df))
-        except KeyError as e:
-            st.write("Your code does not have the right columns")
+if st.button("Reset"):
+    con.execute(f"UPDATE memory_state SET last_reviewed = '1970-01-01'")
+    st.rerun()
 
-        n_lines_difference = result.shape[0] - solution_df.shape[0]
-        if n_lines_difference != 0:
-            st.write(
-                f"result has a {n_lines_difference} lines difference with the solution_df"
-            )
 
-# Onglets
-tab2, tab3 = st.tabs(["Tables", "solution_df"])
-
+tab2, tab3 = st.tabs(["Tables", "Solution"])
 with tab2:
-    st.write("Table : Beverage")
-    st.dataframe(beverage)
-    st.write("Table : Food Items")
-    st.dataframe(food_items)
-    st.write("Expected result")
-    st.dataframe(solution_df)
+    exercise_tables = exercise.loc[0, "tables"]
+    for table in exercise_tables:
+        st.write(f"table: {table}")
+        df_table = con.execute(f"SELECT * FROM {table}").df()
+        st.dataframe(df_table)
 
 with tab3:
-    st.write(ANSWER_STR)
+    st.write(answer)
